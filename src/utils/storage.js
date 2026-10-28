@@ -149,32 +149,50 @@ export const clearCurrentUser = async () => {
 export const getTransactions = async (userId) => {
   const data = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
   const all = data ? JSON.parse(data) : [];
-  if (!userId) return all;
-  return all.filter((t) => t.userId === userId || t.userId === null);
+  // Exclude orphan records without a valid userId
+  const valid = all.filter((t) => t.userId !== null && t.userId !== undefined);
+  if (!userId) return valid;
+  return valid.filter((t) => t.userId === userId);
 };
 
 export const getAllTransactions = async () => {
   const data = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
-  return data ? JSON.parse(data) : [];
+  const all = data ? JSON.parse(data) : [];
+  // Exclude orphan records without a valid userId
+  return all.filter((t) => t.userId !== null && t.userId !== undefined);
 };
 
 export const addTransaction = async (transaction, userId) => {
-  const all = await getAllTransactions();
-  const newTxn = { ...transaction, id: `txn_${Date.now()}`, userId, date: new Date().toISOString() };
+  const data = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
+  const all = data ? JSON.parse(data) : [];
+  const newTxn = {
+    ...transaction,
+    id: `txn_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+    userId,
+    amount: Number(transaction.amount) || 0,
+    date: transaction.date || new Date().toISOString(),
+  };
   all.push(newTxn);
   await AsyncStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(all));
   return newTxn;
 };
 
 export const updateTransaction = async (updatedTxn) => {
-  const all = await getAllTransactions();
+  const data = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
+  const all = data ? JSON.parse(data) : [];
   const idx = all.findIndex((t) => t.id === updatedTxn.id);
-  if (idx >= 0) all[idx] = updatedTxn;
+  if (idx >= 0) {
+    all[idx] = {
+      ...updatedTxn,
+      amount: Number(updatedTxn.amount) || 0,
+    };
+  }
   await AsyncStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(all));
 };
 
 export const deleteTransaction = async (txnId) => {
-  const all = await getAllTransactions();
+  const data = await AsyncStorage.getItem(KEYS.TRANSACTIONS);
+  const all = data ? JSON.parse(data) : [];
   const filtered = all.filter((t) => t.id !== txnId);
   await AsyncStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(filtered));
 };
@@ -191,6 +209,14 @@ export const addCategory = async (category) => {
   cats.push(newCat);
   await AsyncStorage.setItem(KEYS.CATEGORIES, JSON.stringify(cats));
   return newCat;
+};
+
+export const updateCategory = async (updatedCategory) => {
+  const cats = await getCategories();
+  const idx = cats.findIndex((c) => c.id === updatedCategory.id);
+  if (idx >= 0) cats[idx] = updatedCategory;
+  await AsyncStorage.setItem(KEYS.CATEGORIES, JSON.stringify(cats));
+  return updatedCategory;
 };
 
 // ──────────── ANALYTICS HELPERS ────────────
